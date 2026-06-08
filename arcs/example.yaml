@@ -16,16 +16,9 @@ query_groups:
   group_two:
     - "other term"
 
-high_specificity_queries:
-  - "term one"   # these get tier=1 (2x density weight)
-
-phonetic_variants:
-  "term one": ["variant a", "variant b"]
-
 thresholds:
   confident: 85
   review: 60
-  variant_threshold: 5
   date_tolerance_days: 1
   duration_tolerance_sec: 90
   duration_match_bonus: 30

@@ -13,13 +13,11 @@ thresholds:
   # Archive URL matching
   confident: 85
   review: 60
-  variant_threshold: 5        # min hits before phonetic variants are tried
   date_tolerance_days: 1
   duration_tolerance_sec: 90
   duration_match_bonus: 30
 
   # Arc flagging
-  # density_score = (tier1_hits * 2.0 + tier2_hits * 1.0) / duration_minutes
   arc_flag_threshold: 3.0
 
 corpus:

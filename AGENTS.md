@@ -52,7 +52,7 @@ streamscope/
 ├── pipeline/
 │   ├── __init__.py
 │   ├── unify.py               # Cross-reference engine: ID/date/duration/title matching
-│   ├── search.py              # Keyword search runner, phonetic variant expansion
+│   ├── search.py              # Keyword search runner
 │   ├── classify.py            # Arc classification: density scoring, threshold flagging
 │   ├── transcripts.py         # Transcript fetch/cache: DGGVods → yt-dlp fallback
 │   └── corpus.py              # Context window extraction, corpus packer (~800K chars)
@@ -201,7 +201,6 @@ CREATE TABLE hits (
     dgg_vod_id      INTEGER REFERENCES streams(dgg_vod_id),
     arc_name        TEXT,
     query           TEXT,
-    query_tier      INTEGER,        -- 1=high specificity, 2=broad
     start_time      INTEGER,
     end_time        INTEGER,
     snippet         TEXT
@@ -220,16 +219,14 @@ date_range:
   end: "20240901"
 
 thresholds:
-  confident: 85        # match score for archive URL mapping
+  confident: 85          # match score for archive URL mapping
   review: 60
-  variant_threshold: 5 # min hits before phonetic variants are tried
   date_tolerance_days: 1
   duration_tolerance_sec: 90
   duration_match_bonus: 30
 
-  # Arc flagging: a stream is "arc content" if density_score >= arc_flag_threshold
+  # Arc flagging: a stream is flagged if keyword density exceeds this threshold
   arc_flag_threshold: 3.0
-  # density_score = sum(tier1_hits * 2.0 + tier2_hits * 1.0) / stream_duration_minutes
 
 corpus:
   target_chars: 800000
@@ -237,21 +234,10 @@ corpus:
   max_windows_per_stream: 10
 
 query_groups:
-  # (imported from arcs/j6_queries.py or defined inline)
+  # Defined in the arc's query module or inline here
   # Each group is a list of query strings
   organizations: [...]
   key_people: [...]
-  ...
-
-high_specificity_queries:
-  # Queries in this list get tier=1 (2x weight in density score)
-  - "seditious conspiracy"
-  - "fake electors"
-  ...
-
-phonetic_variants:
-  # Maps canonical query → list of variant queries to try if hits < variant_threshold
-  "Raffensperger": ["Raffensberger", "Rafensperger"]
   ...
 ```
 
@@ -266,7 +252,6 @@ phonetic_variants:
 ### Phase 2 — Keyword Search
 - `pipeline/search.py`: run all queries against DGGVods `/search`, paginating results
 - Checkpoint after every completed query (`search_checkpoint.json`)
-- If a query gets fewer than `variant_threshold` hits, try phonetic variants
 - Output: `{query → [hits]}` where each hit has `vod_id`, `start_time`, `snippet`
 
 ### Phase 3 — Archive Ingestion
@@ -283,7 +268,6 @@ phonetic_variants:
 
 ### Phase 5 — Arc Classification
 - `pipeline/classify.py`: for each stream in index, compute density score from hit data
-- `density_score = (tier1_hits × 2.0 + tier2_hits × 1.0) / duration_minutes`
 - Flag stream if density_score >= arc_flag_threshold
 - Output: `arc_results` table populated
 
@@ -297,7 +281,7 @@ phonetic_variants:
 
 ### Phase 7 — Corpus Generation
 - `pipeline/corpus.py`: for each flagged stream, extract context windows (±150s) around each hit
-- Score windows by tier, dedup overlapping windows
+- Dedup overlapping windows
 - Pack corpus to ~800K chars: highest-density windows first
 - Output: `{arc}_corpus.txt`, `{arc}_index.json`
 
