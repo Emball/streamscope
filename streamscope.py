@@ -1,6 +1,6 @@
 """
 StreamScope — multi-source stream corpus builder and arc classifier.
-Version: 0.1.1.0
+Version: 0.1.1.1
 """
 
 import argparse
@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = "0.1.1.0"
+VERSION = "0.1.1.1"
 
 # ---------------------------------------------------------------------------
 # Logging setup
@@ -19,26 +19,62 @@ def _setup_logging(verbose: bool = False):
     level = logging.DEBUG if verbose else logging.INFO
     fmt = "%(asctime)s [%(levelname)s] %(message)s"
     logging.basicConfig(level=level, format=fmt, datefmt="%H:%M:%S")
-    # Suppress noisy library loggers
     for lib in ("urllib3", "requests", "googleapiclient"):
         logging.getLogger(lib).setLevel(logging.WARNING)
+
+
+def _resolve_cookie(args) -> str:
+    """
+    Resolve DGGVods session cookie from (in priority order):
+      1. --dgg-cookie CLI arg
+      2. DGG_COOKIE environment variable
+      3. data/dgg_cookie.txt file
+    Exits with an error message if none found.
+    """
+    from ingest.dggvods import get_cookie, set_cookie_file
+    cookie = getattr(args, 'dgg_cookie', None) or os.environ.get("DGG_COOKIE", "").strip()
+    if cookie:
+        # Persist it for future runs
+        set_cookie_file(cookie)
+        return cookie
+    cookie = get_cookie()
+    if cookie:
+        return cookie
+    print(
+        "ERROR: DGGVods session cookie required.\n"
+        "  Option 1: python streamscope.py set-cookie \"your_cookie_string\"\n"
+        "  Option 2: set DGG_COOKIE environment variable\n"
+        "  Option 3: save cookie to data/dgg_cookie.txt\n\n"
+        "To get your cookie: open dggvods.dev in browser → F12 → Network tab →\n"
+        "  refresh → click any /api/ request → copy the Cookie: header value."
+    )
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
 # Phases
 # ---------------------------------------------------------------------------
 
+def cmd_set_cookie(args):
+    """Save DGGVods session cookie for future runs."""
+    from ingest.dggvods import set_cookie_file
+    set_cookie_file(args.cookie)
+    print(f"[set-cookie] Cookie saved to data/dgg_cookie.txt")
+
+
 def cmd_ingest(args):
     """Phase 1: Fetch VOD metadata from DGGVods and write to DB."""
     from core import load_arc, DB
     from ingest.dggvods import fetch_all_vods
 
+    cookie = _resolve_cookie(args)
     cfg = load_arc(args.arc)
     with DB() as db:
         streams = fetch_all_vods(
             date_start=cfg.date_range.start,
             date_end=cfg.date_range.end,
             force_refresh=args.force_refresh,
+            cookie=cookie,
         )
         ins, upd = db.upsert_streams(streams)
         print(f"[ingest] VODs: {len(streams)} in range  inserted={ins} updated={upd}")
@@ -62,7 +98,6 @@ def cmd_archive(args):
         streams = db.get_streams_in_range(cfg.date_range.start, cfg.date_range.end)
         print(f"[archive] Loaded {len(streams)} streams from DB")
 
-        # Fetch YouTube archives
         yt_videos = yt_fetch(
             channel_configs=cfg.sources.youtube_channels,
             api_key=api_key,
@@ -72,7 +107,6 @@ def cmd_archive(args):
         )
         print(f"[archive] YouTube: {len(yt_videos)} videos")
 
-        # Fetch Odysee archives
         ody_videos = ody_fetch(
             channel_configs=cfg.sources.odysee_channels,
             date_start=cfg.date_range.start,
@@ -91,6 +125,7 @@ def cmd_search(args):
     from core import load_arc, DB
     from pipeline.search import run_search, clear_checkpoint
 
+    cookie = _resolve_cookie(args)
     cfg = load_arc(args.arc)
 
     if args.reset_checkpoint:
@@ -108,6 +143,7 @@ def cmd_search(args):
             stream_ids=stream_ids,
             resume=not args.reset_checkpoint,
             dry_run=args.dry_run,
+            cookie=cookie,
         )
         print(f"[search] Done: {stats}")
 
@@ -157,7 +193,6 @@ def cmd_run(args):
     cmd_ingest(args)
     cmd_search(args)
 
-    # Archive requires YT API key — skip gracefully if not provided
     api_key = getattr(args, 'yt_api_key', None) or os.environ.get("YOUTUBE_API_KEY")
     if api_key:
         cmd_archive(args)
@@ -213,14 +248,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # Shared args
-    arc_arg = lambda p: p.add_argument("--arc", required=True, help="Arc name (e.g. january_6)")
-    refresh_arg = lambda p: p.add_argument("--force-refresh", action="store_true",
-                                            help="Bypass cache and re-fetch")
+    # Shared arg helpers
+    def arc_arg(p):
+        p.add_argument("--arc", required=True, help="Arc name (e.g. j6)")
+    def refresh_arg(p):
+        p.add_argument("--force-refresh", action="store_true", help="Bypass cache")
+    def cookie_arg(p):
+        p.add_argument("--dgg-cookie", help="DGGVods session cookie string (overrides env/file)")
+
+    # set-cookie
+    p_sc = sub.add_parser("set-cookie", help="Save DGGVods session cookie for future runs")
+    p_sc.add_argument("cookie", help="Full Cookie: header value from browser")
+    p_sc.set_defaults(func=cmd_set_cookie)
 
     # ingest
     p_ingest = sub.add_parser("ingest", help="Phase 1: Fetch DGGVods VOD metadata")
-    arc_arg(p_ingest); refresh_arg(p_ingest)
+    arc_arg(p_ingest); refresh_arg(p_ingest); cookie_arg(p_ingest)
     p_ingest.set_defaults(func=cmd_ingest)
 
     # archive
@@ -231,7 +274,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # search
     p_search = sub.add_parser("search", help="Phase 2: Run keyword search")
-    arc_arg(p_search)
+    arc_arg(p_search); cookie_arg(p_search)
     p_search.add_argument("--reset-checkpoint", action="store_true",
                            help="Start fresh (ignore previous progress)")
     p_search.add_argument("--dry-run", action="store_true",
@@ -256,7 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # run (full pipeline)
     p_run = sub.add_parser("run", help="Run full pipeline end-to-end")
-    arc_arg(p_run); refresh_arg(p_run)
+    arc_arg(p_run); refresh_arg(p_run); cookie_arg(p_run)
     p_run.add_argument("--yt-api-key", help="YouTube Data API key")
     p_run.set_defaults(func=cmd_run)
 

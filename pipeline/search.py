@@ -58,6 +58,7 @@ def run_search(
     stream_ids: Optional[set[int]] = None,
     resume: bool = True,
     dry_run: bool = False,
+    cookie: Optional[str] = None,
 ) -> dict:
     """
     Run all queries for an arc against the DGGVods search API.
@@ -84,7 +85,7 @@ def run_search(
     if completed:
         log_step("search", "Resuming from checkpoint", already_done=len(completed))
 
-    session = _session()
+    session = _session(cookie)
     stats = {
         "queries_total": len(queries),
         "queries_done": len(completed),
@@ -297,9 +298,11 @@ def _save_checkpoint(completed: set):
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
-def _session() -> requests.Session:
+def _session(cookie: Optional[str] = None) -> requests.Session:
     s = requests.Session()
     s.headers.update(HEADERS)
+    if cookie:
+        s.headers["Cookie"] = cookie
     return s
 
 
@@ -311,6 +314,8 @@ def _get(session, url, params, retries=3) -> requests.Response:
             return resp
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code in (400, 404):
+                raise
+            if e.response is not None and e.response.status_code == 401:
                 raise
             log.warning(f"[search] HTTP error attempt {attempt+1}/{retries}: {e}")
             if attempt < retries - 1:
