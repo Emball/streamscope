@@ -115,7 +115,7 @@ Referer: https://dggvods.dev/
 Accept: application/json
 ```
 
-**Search query logic:** AND logic — all words in a multi-word query must co-occur in the same sentence. Shorter query = broader net.
+**Search query logic:** AND logic — all words in a multi-word query must co-occur in the same sentence. Shorter query = broader net. Single-word queries match via substring, but whole-word tokenized — so "schizo" does NOT catch "schizoposting".
 
 ### 2. YouTube Archive Channels
 - `@destinyggvods` — `UCJyTTRHqcKDMsctENez6oMQ` — 1080p, original broadcast date in title
