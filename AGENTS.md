@@ -17,7 +17,7 @@ The system is **arc-agnostic**: the January 6th research arc is the pilot, but e
 
 ## Version
 
-**Current:** `0.1.1.1`
+**Current:** `0.1.1.2`
 
 Versioning format: `MAJOR.MINOR.PATCH.MICRO`
 - 300+ lines changed → MAJOR

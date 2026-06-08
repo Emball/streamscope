@@ -1,6 +1,6 @@
 """
 StreamScope — multi-source stream corpus builder and arc classifier.
-Version: 0.1.1.1
+Version: 0.1.1.2
 """
 
 import argparse
@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = "0.1.1.1"
+VERSION = "0.1.1.2"
 
 # ---------------------------------------------------------------------------
 # Logging setup
@@ -128,7 +128,7 @@ def cmd_search(args):
     cookie = _resolve_cookie(args)
     cfg = load_arc(args.arc)
 
-    if args.reset_checkpoint:
+    if getattr(args, "reset_checkpoint", False):
         clear_checkpoint()
         print("[search] Checkpoint cleared")
 
@@ -141,8 +141,8 @@ def cmd_search(args):
             cfg=cfg,
             db=db,
             stream_ids=stream_ids,
-            resume=not args.reset_checkpoint,
-            dry_run=args.dry_run,
+            resume=not getattr(args, "reset_checkpoint", False),
+            dry_run=getattr(args, "dry_run", False),
             cookie=cookie,
         )
         print(f"[search] Done: {stats}")
@@ -301,6 +301,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", help="Run full pipeline end-to-end")
     arc_arg(p_run); refresh_arg(p_run); cookie_arg(p_run)
     p_run.add_argument("--yt-api-key", help="YouTube Data API key")
+    p_run.add_argument("--reset-checkpoint", action="store_true",
+                       help="Clear search checkpoint and start fresh")
+    p_run.add_argument("--dry-run", action="store_true",
+                       help="Run search but dont write to DB")
     p_run.set_defaults(func=cmd_run)
 
     # status
