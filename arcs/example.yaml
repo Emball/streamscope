@@ -1,0 +1,57 @@
+arc_name: "your_arc_name"
+display_name: "Human Readable Arc Name"
+
+date_range:
+  start: "YYYYMMDD"
+  end: "YYYYMMDD"
+
+# Optional: point to a query module (must expose QUERY_GROUPS, PHONETIC_VARIANTS)
+# query_module: "arcs.your_queries"
+# Or define inline below:
+
+query_groups:
+  group_one:
+    - "term one"
+    - "term two"
+  group_two:
+    - "other term"
+
+high_specificity_queries:
+  - "term one"   # these get tier=1 (2x density weight)
+
+phonetic_variants:
+  "term one": ["variant a", "variant b"]
+
+thresholds:
+  confident: 85
+  review: 60
+  variant_threshold: 5
+  date_tolerance_days: 1
+  duration_tolerance_sec: 90
+  duration_match_bonus: 30
+  arc_flag_threshold: 3.0
+
+corpus:
+  target_chars: 800000
+  window_seconds: 300
+  max_windows_per_stream: 10
+
+sources:
+  youtube_channels:
+    - handle: "@destinyggvods"
+      id: "UCJyTTRHqcKDMsctENez6oMQ"
+      resolution: 1080
+      has_date_in_title: true
+      has_video_id_in_title: false
+      priority: 2
+    - handle: "@OmniBased"
+      id: "UClt_id2lCH-wIFjiMWSMCWA"
+      resolution: 360
+      has_date_in_title: true
+      has_video_id_in_title: true
+      priority: 3
+
+  odysee_channels:
+    - slug: "@odysteve:7"
+      channel_id: "777097516b312ee377e1cc63e2d3aa4097d0e63d"
+      priority: 4

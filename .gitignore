@@ -1,0 +1,8 @@
+data/streamscope.db
+data/cache/
+output/
+*.pyc
+__pycache__/
+client_secrets.json
+yt_token.json
+.env

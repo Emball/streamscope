@@ -1,0 +1,51 @@
+arc_name: "january_6"
+display_name: "Destiny January 6th Research Arc"
+
+date_range:
+  start: "20231201"
+  end: "20240901"
+
+# Query definitions are in arcs/j6_queries.py
+# QUERY_GROUPS, PHONETIC_VARIANTS, REACTION_TERMS, HIGH_SPECIFICITY, BLIND_SPOT_QUERIES
+query_module: "arcs.j6_queries"
+
+thresholds:
+  # Archive URL matching
+  confident: 85
+  review: 60
+  variant_threshold: 5        # min hits before phonetic variants are tried
+  date_tolerance_days: 1
+  duration_tolerance_sec: 90
+  duration_match_bonus: 30
+
+  # Arc flagging
+  # density_score = (tier1_hits * 2.0 + tier2_hits * 1.0) / duration_minutes
+  arc_flag_threshold: 3.0
+
+corpus:
+  target_chars: 800000
+  window_seconds: 300         # context window around each hit (±150s)
+  max_windows_per_stream: 10
+
+sources:
+  youtube_channels:
+    - handle: "@destinyggvods"
+      id: "UCJyTTRHqcKDMsctENez6oMQ"
+      resolution: 1080
+      has_date_in_title: true
+      has_video_id_in_title: false
+      priority: 2             # transcript fallback priority (1=highest)
+    - handle: "@OmniBased"
+      id: "UClt_id2lCH-wIFjiMWSMCWA"
+      resolution: 360
+      has_date_in_title: true
+      has_video_id_in_title: true
+      priority: 3
+
+  odysee_channels:
+    - slug: "@odysteve:7"
+      channel_id: "777097516b312ee377e1cc63e2d3aa4097d0e63d"
+      priority: 4
+    - slug: "@stefanfs:5"
+      channel_id: "5886d12f05f78c70aebb336b8f33cbe3f0a6cda4"
+      priority: 4
