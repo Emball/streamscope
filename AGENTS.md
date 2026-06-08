@@ -115,7 +115,7 @@ Referer: https://dggvods.dev/
 Accept: application/json
 ```
 
-**Search query logic:** AND logic — all words in query must co-occur in the same sentence. Shorter query = broader net. Single-word queries catch all inflections via substring match (whole-word tokenized, so "schizo" does NOT catch "schizoposting").
+**Search query logic:** AND logic — all words in a multi-word query must co-occur in the same sentence. Shorter query = broader net.
 
 ### 2. YouTube Archive Channels
 - `@destinyggvods` — `UCJyTTRHqcKDMsctENez6oMQ` — 1080p, original broadcast date in title
@@ -261,9 +261,9 @@ query_groups:
 
 ### Phase 4 — Unification
 - `pipeline/unify.py`: cross-reference DGGVods index against YT + Odysee
-- Matching priority: direct video_id match (score 200) → date+title fuzzy (date 25%, title 75%, dur bonus) → date-weighted fallback if title_score < 40 (date 60%, title 40%)
-- Dedup same-day same-title streams by duration delta (>= 2% → different stream)
-- Confident threshold: score >= 85; Review: 60–84; Unmatched: < 60
+- Matching signals: direct video_id match (highest confidence) → date + title fuzzy match + duration bonus
+- Same-day same-title streams: if duration differs beyond tolerance → distinct stream; otherwise → same stream
+- Outputs confidence tier per match: confident / needs review / unmatched
 - Output: master index in SQLite, match report
 
 ### Phase 5 — Arc Classification
@@ -295,10 +295,9 @@ query_groups:
 4. **Arc-agnostic** — no January 6th hardcoding anywhere outside `arcs/j6.yaml` and `arcs/j6_queries.py`
 5. **Speaker tags ignored** — DGGVods transcript speaker tags are stripped; searching across all text
 6. **No special characters in queries** — hyphens break search; plain text only
-7. **Whole-word substring matching** — "schizo" does NOT catch "schizoposting"; add separately if needed
-8. **Same-day duplicate handling** — same title + same date + duration within 2% → same stream; otherwise → distinct stream, flagged for review
-9. **Date tolerance** — ±1 day allowed in archive matching (configurable)
-10. **SQLite for index, JSON for exports** — index is queryable; outputs are portable
+7. **Same-day duplicate handling** — same title + same date + duration within tolerance → same stream; otherwise → distinct stream, flagged for review
+8. **Date tolerance** — ±1 day allowed in archive matching (configurable)
+9. **SQLite for index, JSON for exports** — index is queryable; outputs are portable
 
 ---
 
